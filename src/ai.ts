@@ -1,7 +1,7 @@
 /* the agi */
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import type { Message } from "./Message";
+import { formatRoll, rollMessages, type Message } from "./Message";
 
 const openAiClient = new OpenAI({
   apiKey: process.env["OPENAI_API_KEY"],
@@ -15,7 +15,7 @@ const anthropicClient = new Anthropic({
  * @param {Message} message
  * @returns {Promise<boolean>}
  */
-export const isAProject = async function (message: Message): Promise<boolean> {
+export const isAProject = async function (body: string): Promise<boolean> {
   const chatCompletion = await openAiClient.chat.completions.create({
     messages: [
       {
@@ -25,7 +25,7 @@ export const isAProject = async function (message: Message): Promise<boolean> {
       },
       {
         role: "user",
-        content: `Are we talking about a project? "YES" OR "NO" ${message.body}`,
+        content: `Are we talking about a project? "YES" OR "NO" ${body}`,
       },
     ],
     model: "gpt-4o-mini",
@@ -44,7 +44,7 @@ export const isAProject = async function (message: Message): Promise<boolean> {
  * @param {Message} message
  * @returns {Promise<string>}
  */
-export const tldrOfProject = async (message: Message): Promise<string> => {
+export const tldrOfProject = async (body: string): Promise<string> => {
   const chatCompletion = await anthropicClient.messages.create({
     max_tokens: 20,
     model: "claude-3-opus-20240229",
@@ -54,7 +54,7 @@ export const tldrOfProject = async (message: Message): Promise<string> => {
         content: `TLDR for "we should make a home manager standalone utility"`,
       },
       { role: "assistant", content: "Home manager standalone utility" },
-      { role: "user", content: `TLDR for ${message.body}` },
+      { role: "user", content: `TLDR for ${body}` },
     ],
   });
 
@@ -84,15 +84,15 @@ export const whoseProjectIdea = async (projectIdea: Message[]) => {
       {
         role: "user",
         content:
-          "NAME='WOLF MERMELSTEIN';PROJECT='We should do hyprland but in rust",
+          "NAME='JOE SHMOE';PROJECT='We should do hyprland but in rust",
       },
       {
         role: "assistant",
-        content: "Wolf Mermelstein",
+        content: "JOE SHMOE",
       },
       {
         role: "user",
-        content: `Whose idea is this? NAME OR PROJECT\nNAME='${possibleProjectId.name.toUpperCase()}';PROJECT='${possibleProjectId.body}'`,
+        content: `Whose idea is this? NAME OR PROJECT;NAME='${possibleProjectId.name.toUpperCase()}';PROJECT='${possibleProjectId.body}'`,
       },
     ],
     model: "gpt-4o-mini",
@@ -101,3 +101,14 @@ export const whoseProjectIdea = async (projectIdea: Message[]) => {
   return chatCompletion.choices[0].message.content;
 };
 
+export const processRoll = async (messages: Message[]) => {
+    const processedRoll = await rollMessages(messages);
+    const formattedRoll = await Promise.all(processedRoll.map(r => formatRoll(r, false)));
+    const formattedRollNamed = await Promise.all(processedRoll.map(r => formatRoll(r, true)));
+    const isProject = await Promise.all(
+        formattedRoll
+            .filter(async r => await isAProject(r))
+            .map(async r => await tldrOfProject(r))
+    )
+
+}
