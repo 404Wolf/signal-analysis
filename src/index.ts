@@ -1,11 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { Database } from "bun:sqlite";
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
-
-const client = new Anthropic({
-  apiKey: process.env["ANTHROPIC_API_KEY"],
-});
+import type { Message } from "./Message";
 
 /**
  * Gets the messages for a recipient by name from the SQLite database.
@@ -17,7 +13,7 @@ const getMessages = async (name: string, fp = "./output/database.sqlite") => {
   const db = new Database(fp);
   const query =
     db.query(`SELECT r2.profile_joined_name,message.body FROM recipient RIGHT JOIN thread RIGHT JOIN message RIGHT JOIN recipient AS r2 WHERE lower(recipient.profile_joined_name) LIKE "%${name}%" AND recipient._id==thread.recipient_id AND thread._id==message.thread_id AND message.from_recipient_id==r2._id AND message.body!="";`);
-  return query.all();
+  return query.all() as Message[];
 }
 
 const argv = yargs(hideBin(process.argv))
@@ -33,6 +29,7 @@ const argv = yargs(hideBin(process.argv))
       console.error("Recipient name is required");
       process.exit(1);
     }
-    (await getMessages(name)).forEach((el: any) => console.log(`${el.profile_joined_name}: ${el.body}`));
+    const ret = (await getMessages(name)).map((el) => `${el.profile_joined_name}: ${el.body}`).reduce((acc, curr) => acc + `${curr}\n`, "");;
+    console.log(ret);
   })
   .parse();
