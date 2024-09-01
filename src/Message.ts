@@ -32,6 +32,7 @@ export const rollMessages = async (messages: Message[], windowSize = 5) => {
     }, Array(windowSize - 1).fill([]) as Message[][])
 }
 
-export const formatRoll = async (message: Message[]) => {
-    return message.map(m => `${m.name}: ${m.body}`).join('\n')
+export const formatRoll = async (messages: Message[]) => {
+    let names = messages.map(m => m.name).filter((v, i, s) => s.indexOf(v) === i)
+    return messages.map(m => `${names.indexOf(m.name)}: ${m.body}`).join('; ')
 }
