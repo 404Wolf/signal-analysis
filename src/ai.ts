@@ -51,7 +51,7 @@ export const tldrOfProject = async (body: string): Promise<string> => {
     messages: [
       {
         role: "user",
-        content: `TLDR for "we should make a home manager standalone utility"`,
+        content: `SHORT TLDR for "we should make a home manager standalone utility". ONLY REFERENCE THE PROJECT IDEA ITSELF. BE SUPER PITHY. TLDR. NO ADJECTIVES.`,
       },
       { role: "assistant", content: "Home manager standalone utility" },
       { role: "user", content: `TLDR for ${body}` },
@@ -61,25 +61,19 @@ export const tldrOfProject = async (body: string): Promise<string> => {
   return (chatCompletion.content[0] as any).text;
 };
 
-const possibleProjectId = {
-  name: "Wolf Mermelstein",
-  body: "we should make pypi OS",
-};
-
-const itIsAProject = await isAProject(possibleProjectId);
-
-if (itIsAProject) {
-  const tldr = await tldrOfProject(possibleProjectId);
-  console.log(tldr);
-}
-
 export const whoseProjectIdea = async (projectIdea: Message[]) => {
+  let formattedProjectConversation = projectIdea
+    .map(
+      (projectIdea) => `${projectIdea.name.toUpperCase()}: ${projectIdea.body}`,
+    )
+    .join("\n");
+
   const chatCompletion = await openAiClient.chat.completions.create({
     messages: [
       {
         role: "system",
         content:
-          'You figure out whose idea is whose. You are told\n"NAME=JOHN SMITH" and\n"PROJECT=WE SHOULD MAKE A HOME MANAGER STANDALONE UTILITY".\nYou ONLY SAY the NAME of the person whose idea it is.',
+          'You are a machine who determines whose idea a project is. You ONLY say the name of the person. So say like, "JOHN SMITH"',
       },
       {
         role: "user",
@@ -92,7 +86,7 @@ export const whoseProjectIdea = async (projectIdea: Message[]) => {
       },
       {
         role: "user",
-        content: `Whose idea is this? NAME OR PROJECT;NAME='${possibleProjectId.name.toUpperCase()}';PROJECT='${possibleProjectId.body}'`,
+        content: `Whose idea is this project? ${formattedProjectConversation}`,
       },
     ],
     model: "gpt-4o-mini",
