@@ -58,14 +58,23 @@ yargs(hideBin(process.argv))
       });
     },
     async (argv) => {
-      const { name } = argv;
+      const { name, rollSize } = argv;
       console.log(`Listing messages for recipient "${name}"`);
       if (name === undefined) {
         console.error("Recipient name is required");
         process.exit(1);
       }
-      const ret = await processRoll(await getMessages(name))
+      const ret = await processRoll(await getMessages(name), rollSize as number)
       console.log(ret);
+    },
+  )
+  .option(
+    "rollSize",
+    {
+      alias: "r",
+      description: "Message roll size",
+      type: "number",
+      default: 6,
     },
   )
   .parse();

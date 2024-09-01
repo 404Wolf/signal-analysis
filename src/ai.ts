@@ -6,6 +6,13 @@ import { formatRoll, rollMessages, type Message } from "./Message";
 export interface ProjectIdea {
     name: string;
     TLDR: string;
+    temp: string;
+}
+
+interface PossibleProject {
+    unnamed: string;
+    named: string;
+    isProject: boolean;
 }
 
 const openAiClient = new OpenAI({
@@ -30,7 +37,23 @@ export const isAProject = async function (body: string): Promise<boolean> {
       },
       {
         role: "user",
-        content: `Are we talking about a project? "YES" OR "NO" ${body}`,
+        content: `Are we talking about our own project idea that is well defined? "YES" OR "NO" 0: Hey we should rewrite Hyprland in Rust; 1: Thats a cool idea!; 0: Yeah I agree`,
+      },
+      {
+        role: "assistant",
+        content: "YES",
+      },
+      {
+        role: "user",
+        content: `Are we talking about our own project idea that is well defined? "YES" OR "NO" 0: i'l be here till 330 probably if you free up; 1: I can help you work on that; 1: https://github.com/Maroka-chan/VPN-Confinement; 0: Cool`,
+      },
+      {
+        role: "assistant",
+        content: "NO",
+      },
+      {
+        role: "user",
+        content: `Are we talking about our own project idea that is well defined? "YES" OR "NO" ${body}`,
       },
     ],
     model: "gpt-4o-mini",
@@ -50,9 +73,9 @@ export const isAProject = async function (body: string): Promise<boolean> {
  * @returns {Promise<string>}
  */
 export const tldrOfProject = async (body: string): Promise<string> => {
-  const chatCompletion = await anthropicClient.messages.create({
+  const chatCompletion = await openAiClient.chat.completions.create({
     max_tokens: 20,
-    model: "claude-3-opus-20240229",
+    model: "gpt-4o-mini",
     messages: [
       {
         role: "user",
@@ -63,7 +86,7 @@ export const tldrOfProject = async (body: string): Promise<string> => {
     ],
   });
 
-  return (chatCompletion.content[0] as any).text;
+  return chatCompletion.choices[0].message.content!;
 };
 
 export const whoseProjectIdea = async (message: string) => {
@@ -94,9 +117,9 @@ export const whoseProjectIdea = async (message: string) => {
   return chatCompletion.choices[0].message.content!;
 };
 
-export const processRoll = async (messages: Message[]) => {
-    messages = messages.slice(-50)
-    const processedRoll = await rollMessages(messages);
+export const processRoll = async (messages: Message[], rollSize: number) => {
+    messages = messages.slice(-500)
+    const processedRoll = await rollMessages(messages, rollSize);
     const formattedRoll = await Promise.all(processedRoll.map(r => formatRoll(r, false)));
     const formattedRollNamed = await Promise.all(processedRoll.map(r => formatRoll(r, true)));
     const isProject = (await Promise.all(formattedRoll
@@ -104,8 +127,20 @@ export const processRoll = async (messages: Message[]) => {
     ))
 
     const projectIdeas = await Promise.all(isProject
-            .filter(r => r.isProject)
-            .map(async (r): Promise<ProjectIdea> => ({TLDR: await tldrOfProject(r.unnamed), name: await whoseProjectIdea(r.named)}))
+            .reduce((acc, r) => {
+                if (r.isProject) acc[-1].push(r)
+                else if (acc[-1].length !== 0) acc.push([])
+                return acc
+            }, [[]] as PossibleProject[][])
+            .map(async groupProjects => 
+                groupProjects.map(async (possibleDupProj) => 
+                    ({
+                        TLDR: await tldrOfProject(possibleDupProj.unnamed),
+                        name: await whoseProjectIdea(possibleDupProj.named),
+                        temp: possibleDupProj.named
+                    })
+                )
+            )
     )
 
     return projectIdeas;
