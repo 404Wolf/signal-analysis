@@ -11,25 +11,33 @@ import type { Message } from "./Message";
  */
 const getMessages = async (name: string, fp = "./output/database.sqlite") => {
   const db = new Database(fp);
-  const query =
-    db.query(`SELECT r2.profile_joined_name,message.body FROM recipient RIGHT JOIN thread RIGHT JOIN message RIGHT JOIN recipient AS r2 WHERE lower(recipient.profile_joined_name) LIKE "%${name}%" AND recipient._id==thread.recipient_id AND thread._id==message.thread_id AND message.from_recipient_id==r2._id AND message.body!="";`);
+  const query = db.query(
+    `SELECT r2.profile_joined_name,message.body FROM recipient RIGHT JOIN thread RIGHT JOIN message RIGHT JOIN recipient AS r2 WHERE lower(recipient.profile_joined_name) LIKE "%${name}%" AND recipient._id==thread.recipient_id AND thread._id==message.thread_id AND message.from_recipient_id==r2._id AND message.body!="";`,
+  );
   return query.all() as Message[];
-}
+};
 
-const argv = yargs(hideBin(process.argv))
-  .command('list-messages [name]', "List messages by recipient name", (yargs) => {
-    return yargs.positional("name", {
-      description: "Recipient name to filter messages by",
-      type: "string",
-    })
-  }, async (argv) => {
-    const { name } = argv;
-    console.log(`Listing messages for recipient "${name}"`);
-    if (name === undefined) {
-      console.error("Recipient name is required");
-      process.exit(1);
-    }
-    const ret = (await getMessages(name)).map((el) => `${el.profile_joined_name}: ${el.body}`).reduce((acc, curr) => acc + `${curr}\n`, "");;
-    console.log(ret);
-  })
+yargs(hideBin(process.argv))
+  .command(
+    "list-messages [name]",
+    "List messages by recipient name",
+    (yargs) => {
+      return yargs.positional("name", {
+        description: "Recipient name to filter messages by",
+        type: "string",
+      });
+    },
+    async (argv) => {
+      const { name } = argv;
+      console.log(`Listing messages for recipient "${name}"`);
+      if (name === undefined) {
+        console.error("Recipient name is required");
+        process.exit(1);
+      }
+      const ret = (await getMessages(name))
+        .map((el) => `${el.profile_joined_name}: ${el.body}`)
+        .reduce((acc, curr) => acc + `${curr}\n`, "");
+      console.log(ret);
+    },
+  )
   .parse();
