@@ -42,10 +42,14 @@ yargs(hideBin(process.argv))
         console.error("Recipient name is required");
         process.exit(1);
       }
-      const ret = (await Promise.all((await rollMessages(await getMessages(name))).map((a) => formatRoll(a))))
-      const should = ret.filter(m => m.includes("should"))
+      const ret = await Promise.all(
+        (await rollMessages(await getMessages(name))).map((a) => formatRoll(a)),
+      );
+      const should = ret.filter((m) => m.includes("should"));
       console.log(ret);
-      console.log(`${should.length}/${ret.length}=${should.length / ret.length * 100}% should roll`);
+      console.log(
+        `${should.length}/${ret.length}=${(should.length / ret.length) * 100}% should roll`,
+      );
     },
   )
   .command(
@@ -64,17 +68,27 @@ yargs(hideBin(process.argv))
         console.error("Recipient name is required");
         process.exit(1);
       }
-      const ret = await processRoll(await getMessages(name), rollSize as number)
+      const ret = await processRoll(
+        await getMessages(name),
+        rollSize as number,
+      );
+      await Bun.write(
+        argv.outfile as string,
+        JSON.stringify(ret, undefined, 4),
+      );
       console.log(ret);
     },
   )
-  .option(
-    "rollSize",
-    {
-      alias: "r",
-      description: "Message roll size",
-      type: "number",
-      default: 6,
-    },
-  )
+  .option("rollSize", {
+    alias: "r",
+    description: "Message roll size",
+    type: "number",
+    default: 6,
+  })
+  .option("outfile", {
+    alias: "o",
+    description: "Output filepath",
+    type: "string",
+    default: "out.json",
+  })
   .parse();
