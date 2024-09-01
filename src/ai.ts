@@ -4,8 +4,8 @@ import OpenAI from "openai";
 import { formatRoll, rollMessages, type Message } from "./Message";
 
 export interface ProjectIdea {
-    name: string;
-    TLDR: string;
+  name: string;
+  TLDR: string;
 }
 
 const openAiClient = new OpenAI({
@@ -76,8 +76,7 @@ export const whoseProjectIdea = async (message: string) => {
       },
       {
         role: "user",
-        content:
-          "JOE SHMOE: We should do hyprland but in rust",
+        content: "JOE SHMOE: We should do hyprland but in rust",
       },
       {
         role: "assistant",
@@ -94,19 +93,62 @@ export const whoseProjectIdea = async (message: string) => {
   return chatCompletion.choices[0].message.content!;
 };
 
+// takes a list of tldr strings, and returns a list of indeces of those that are unique
+export const getUniqueProjects = async (tldrs: string[]) => {
+  let cleanedUpString = tldrs.map(
+    (tldr: string, index: number) => `${index}: ${tldr}`,
+  );
+  const chatCompletion = await openAiClient.chat.completions.create({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a machine who determines which project idea is unique. GIVE A COMMA SEPERATED LIST OF UNIQUE NEWLINE SEPERATED PROJECTS.",
+      },
+      {
+        role: "user",
+        content: `Which project idea is unique? ${cleanedUpString.join("\n")}`,
+      },
+    ],
+    model: "gpt-4o-mini",
+  });
+  return chatCompletion.choices[0].message
+    .content!.split(",")
+    .map((option) => option.match(/\d+/)![0]!);
+};
+
 export const processRoll = async (messages: Message[]) => {
-    messages = messages.slice(-50)
-    const processedRoll = await rollMessages(messages);
-    const formattedRoll = await Promise.all(processedRoll.map(r => formatRoll(r, false)));
-    const formattedRollNamed = await Promise.all(processedRoll.map(r => formatRoll(r, true)));
-    const isProject = (await Promise.all(formattedRoll
-            .map(async (a, i) => ({unnamed: a, named: formattedRollNamed[i], isProject: await isAProject(a)}))
-    ))
+  messages = messages.slice(-50);
+  const processedRoll = await rollMessages(messages);
+  const formattedRoll = await Promise.all(
+    processedRoll.map((r) => formatRoll(r, false)),
+  );
+  const formattedRollNamed = await Promise.all(
+    processedRoll.map((r) => formatRoll(r, true)),
+  );
+  const isProject = await Promise.all(
+    formattedRoll.map(
+      async (
+        a,
+        i,
+      ): Promise<{ unnamed: string; named: string; isProject: boolean }> => ({
+        unnamed: a,
+        named: formattedRollNamed[i],
+        isProject: await isAProject(a),
+      }),
+    ),
+  );
 
-    const projectIdeas = await Promise.all(isProject
-            .filter(r => r.isProject)
-            .map(async (r): Promise<ProjectIdea> => ({TLDR: await tldrOfProject(r.unnamed), name: await whoseProjectIdea(r.named)}))
-    )
+  const projectIdeas = await Promise.all(
+    isProject
+      .filter((r) => r.isProject)
+      .map(
+        async (r): Promise<ProjectIdea> => ({
+          TLDR: await tldrOfProject(r.unnamed),
+          name: await whoseProjectIdea(r.named),
+        }),
+      ),
+  );
 
-    return projectIdeas;
-}
+  return projectIdeas;
+};
