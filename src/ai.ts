@@ -3,6 +3,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { formatRoll, rollMessages, type Message } from "./Message";
 
+export interface ProjectIdea {
+    name: string;
+    TLDR: string;
+}
+
 const openAiClient = new OpenAI({
   apiKey: process.env["OPENAI_API_KEY"],
 });
@@ -61,24 +66,18 @@ export const tldrOfProject = async (body: string): Promise<string> => {
   return (chatCompletion.content[0] as any).text;
 };
 
-export const whoseProjectIdea = async (projectIdea: Message[]) => {
-  let formattedProjectConversation = projectIdea
-    .map(
-      (projectIdea) => `${projectIdea.name.toUpperCase()}: ${projectIdea.body}`,
-    )
-    .join("\n");
-
+export const whoseProjectIdea = async (message: string) => {
   const chatCompletion = await openAiClient.chat.completions.create({
     messages: [
       {
         role: "system",
         content:
-          'You are a machine who determines whose idea a project is. You ONLY say the name of the person. So say like, "JOHN SMITH"',
+          'You are a machine who determines whose idea a project is. You ONLY say the name of the person. So say like, "JOE SHMOE"',
       },
       {
         role: "user",
         content:
-          "NAME='JOE SHMOE';PROJECT='We should do hyprland but in rust",
+          "JOE SHMOE: We should do hyprland but in rust",
       },
       {
         role: "assistant",
@@ -86,23 +85,28 @@ export const whoseProjectIdea = async (projectIdea: Message[]) => {
       },
       {
         role: "user",
-        content: `Whose idea is this project? ${formattedProjectConversation}`,
+        content: `Whose idea is this project? ${message}`,
       },
     ],
     model: "gpt-4o-mini",
   });
 
-  return chatCompletion.choices[0].message.content;
+  return chatCompletion.choices[0].message.content!;
 };
 
 export const processRoll = async (messages: Message[]) => {
+    messages = messages.slice(-50)
     const processedRoll = await rollMessages(messages);
     const formattedRoll = await Promise.all(processedRoll.map(r => formatRoll(r, false)));
     const formattedRollNamed = await Promise.all(processedRoll.map(r => formatRoll(r, true)));
-    const isProject = await Promise.all(
-        formattedRoll
-            .filter(async r => await isAProject(r))
-            .map(async r => await tldrOfProject(r))
+    const isProject = (await Promise.all(formattedRoll
+            .map(async (a, i) => ({unnamed: a, named: formattedRollNamed[i], isProject: await isAProject(a)}))
+    ))
+
+    const projectIdeas = await Promise.all(isProject
+            .filter(r => r.isProject)
+            .map(async (r): Promise<ProjectIdea> => ({TLDR: await tldrOfProject(r.unnamed), name: await whoseProjectIdea(r.named)}))
     )
 
+    return projectIdeas;
 }

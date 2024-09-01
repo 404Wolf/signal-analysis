@@ -1,6 +1,7 @@
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
 import { formatRoll, getMessages, rollMessages } from "./Message";
+import { processRoll } from "./ai";
 
 yargs(hideBin(process.argv))
   .command(
@@ -45,6 +46,26 @@ yargs(hideBin(process.argv))
       const should = ret.filter(m => m.includes("should"))
       console.log(ret);
       console.log(`${should.length}/${ret.length}=${should.length / ret.length * 100}% should roll`);
+    },
+  )
+  .command(
+    "list-project-ideas [name]",
+    "List project ideas from messages by recipient name",
+    (yargs) => {
+      return yargs.positional("name", {
+        description: "Recipient name to filter messages by",
+        type: "string",
+      });
+    },
+    async (argv) => {
+      const { name } = argv;
+      console.log(`Listing messages for recipient "${name}"`);
+      if (name === undefined) {
+        console.error("Recipient name is required");
+        process.exit(1);
+      }
+      const ret = await processRoll(await getMessages(name))
+      console.log(ret);
     },
   )
   .parse();

@@ -46,5 +46,5 @@ export const rollMessages = async (
 
 export const formatRoll = async (messages: Message[], withNames = false) => {
     let names = messages.map(m => m.name).filter((v, i, s) => s.indexOf(v) === i)
-    return messages.map(m => `${withNames ? m.name : names.indexOf(m.name)}: ${m.body}`).join('; ')
+    return messages.map(m => `${withNames ? m.name.toUpperCase() : names.indexOf(m.name)}: ${m.body}`).join('; ')
 }
