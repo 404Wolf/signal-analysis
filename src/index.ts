@@ -1,21 +1,6 @@
-import { Database } from "bun:sqlite";
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
-import type { Message } from "./Message";
-
-/**
- * Gets the messages for a recipient by name from the SQLite database.
- * @param name Recipient's name in the database.
- * @param fp The file path to the SQLite database.
- * @returns The messages for the recipient.
- */
-const getMessages = async (name: string, fp = "./output/database.sqlite") => {
-  const db = new Database(fp);
-  const query = db.query(
-    `SELECT r2.profile_joined_name,message.body FROM recipient RIGHT JOIN thread RIGHT JOIN message RIGHT JOIN recipient AS r2 WHERE lower(recipient.profile_joined_name) LIKE "%${name}%" AND recipient._id==thread.recipient_id AND thread._id==message.thread_id AND message.from_recipient_id==r2._id AND message.body!="";`,
-  );
-  return query.all() as Message[];
-};
+import { getMessages, rollMessages } from "./Message";
 
 yargs(hideBin(process.argv))
   .command(
@@ -35,9 +20,30 @@ yargs(hideBin(process.argv))
         process.exit(1);
       }
       const ret = (await getMessages(name))
-        .map((el) => `${el.profile_joined_name}: ${el.body}`)
+        .map((el) => `${el.name}: ${el.body}`)
         .reduce((acc, curr) => acc + `${curr}\n`, "");
       console.log(ret);
+    },
+  )
+  .command(
+    "list-messages-roll [name]",
+    "List messages by recipient name",
+    (yargs) => {
+      return yargs.positional("name", {
+        description: "Recipient name to filter messages by",
+        type: "string",
+      });
+    },
+    async (argv) => {
+      const { name } = argv;
+      console.log(`Listing messages for recipient "${name}"`);
+      if (name === undefined) {
+        console.error("Recipient name is required");
+        process.exit(1);
+      }
+      const ret = await rollMessages(await getMessages(name))
+      console.log(ret);
+      console.log(ret.length);
     },
   )
   .parse();
