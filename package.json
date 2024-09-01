@@ -10,5 +10,8 @@
   },
   "scripts": {
     "run": "bun ./src/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.1"
   }
 }
