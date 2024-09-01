@@ -99,8 +99,7 @@ export const whoseProjectIdea = async (message: string) => {
       },
       {
         role: "user",
-        content:
-          "JOE SHMOE: We should do hyprland but in rust",
+        content: "JOE SHMOE: We should do hyprland but in rust",
       },
       {
         role: "assistant",
@@ -117,8 +116,34 @@ export const whoseProjectIdea = async (message: string) => {
   return chatCompletion.choices[0].message.content!;
 };
 
+// takes a list of tldr strings, and returns a list of indeces of those that are unique
+export const getUniqueProjects = async (tldrs: string[]) => {
+    let cleanedUpString = tldrs.map(
+      (tldr: string, index: number) => `${index}: ${tldr}`,
+    );
+    const chatCompletion = await openAiClient.chat.completions.create({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a machine who determines which project idea is unique. GIVE A COMMA SEPERATED LIST OF THE INDICES OF UNIQUE NEWLINE SEPERATED PROJECTS.",
+        },
+        {
+          role: "user",
+          content: `Which project ideas are unique? ${cleanedUpString.join("\n")}`,
+        },
+      ],
+      model: "gpt-4o-mini",
+    });
+    return chatCompletion.choices[0].message
+      .content!.split(",")
+      .map((option) => option.match(/\d*/)![0]!)
+      .map(i => parseInt(i))
+      .filter(i => !isNaN(i));
+  };
+
 export const processRoll = async (messages: Message[], rollSize: number) => {
-    messages = messages.slice(-500)
+    messages = messages.slice(0, 1000)
     const processedRoll = await rollMessages(messages, rollSize);
     const formattedRoll = await Promise.all(processedRoll.map(r => formatRoll(r, false)));
     const formattedRollNamed = await Promise.all(processedRoll.map(r => formatRoll(r, true)));
@@ -126,22 +151,29 @@ export const processRoll = async (messages: Message[], rollSize: number) => {
             .map(async (a, i) => ({unnamed: a, named: formattedRollNamed[i], isProject: await isAProject(a)}))
     ))
 
-    const projectIdeas = await Promise.all(isProject
+    const projectIdeas = (await Promise.all(isProject
             .reduce((acc, r) => {
-                if (r.isProject) acc[-1].push(r)
-                else if (acc[-1].length !== 0) acc.push([])
+                if (r.isProject) acc[acc.length - 1].push(r)
+                else if (acc[acc.length - 1].length !== 0) acc.push([])
                 return acc
             }, [[]] as PossibleProject[][])
             .map(async groupProjects => 
-                groupProjects.map(async (possibleDupProj) => 
+                await Promise.all(groupProjects.map(async (possibleDupProj) => 
                     ({
                         TLDR: await tldrOfProject(possibleDupProj.unnamed),
                         name: await whoseProjectIdea(possibleDupProj.named),
                         temp: possibleDupProj.named
                     })
+                ))
+            )
+            .map(async chunks => await Promise.all(
+                (await getUniqueProjects(
+                    (await chunks)
+                    .map(r => r.TLDR)))
+                    .map(async i => (await chunks)[i])
                 )
             )
-    )
+    )).flat();
 
-    return projectIdeas;
-}
+  return projectIdeas;
+};
