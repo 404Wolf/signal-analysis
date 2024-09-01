@@ -1,5 +1,13 @@
 # Based on https://raw.githubusercontent.com/github/gitignore/main/Node.gitignore
 
+# Signal private files
+
+output
+
+# direnv
+
+.direnv
+
 # Logs
 
 logs
