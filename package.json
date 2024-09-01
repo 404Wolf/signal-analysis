@@ -12,6 +12,8 @@
     "run": "bun ./src/index.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.27.1"
+    "@anthropic-ai/sdk": "^0.27.1",
+    "@types/yargs": "^17.0.33",
+    "yargs": "^17.7.2"
   }
 }
